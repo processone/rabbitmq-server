@@ -240,6 +240,7 @@ checkout_enq_settle_test(_) ->
     {State1, [{mod_call, rabbit_quorum_queue, spawn_notify_decorators, _},
               {monitor, _, _} | _]} = check(Cid, 1, test_init(test)),
     {State2, Effects0} = enq(2, 1,  first, State1),
+    ct:pal("Effects0 ~p", [Effects0]),
     ?ASSERT_EFF({send_msg, _,
                  {delivery, ?FUNCTION_NAME,
                   [{0, {_, first}}]}, _},

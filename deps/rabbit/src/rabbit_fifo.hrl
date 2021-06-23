@@ -79,7 +79,7 @@
 
 -record(consumer,
         {meta = #{} :: consumer_meta(),
-         checked_out = #{} :: #{msg_id() => {msg_in_id(), indexed_msg()}},
+         checked_out = #{} :: #{msg_id() => indexed_msg()},
          next_msg_id = 0 :: msg_id(), % part of snapshot data
          %% max number of messages that can be sent
          %% decremented for each delivery
