@@ -757,9 +757,10 @@ overview(#?MODULE{consumers = Cons,
 get_checked_out(Cid, From, To, #?MODULE{consumers = Consumers}) ->
     case Consumers of
         #{Cid := #consumer{checked_out = Checked}} ->
-            [{K, snd(snd(maps:get(K, Checked)))}
-             || K <- lists:seq(From, To),
-                maps:is_key(K, Checked)];
+            [begin
+                 ?INDEX_MSG(_, ?MSG(H, M)) = maps:get(K, Checked),
+                 {K, {H, M}}
+             end || K <- lists:seq(From, To), maps:is_key(K, Checked)];
         _ ->
             []
     end.
@@ -969,9 +970,9 @@ query_peek(Pos, State0) when Pos > 0 ->
     case take_next_msg(State0) of
         empty ->
             {error, no_message_at_pos};
-        {?INDEX_MSG(Idx, ?MSG(Header, Msg)), _State}
+        {IdxMsg, _State}
           when Pos == 1 ->
-            {ok, {Idx, {Header, Msg}}};
+            {ok, IdxMsg};
         {_Msg, State} ->
             query_peek(Pos-1, State)
     end.
@@ -1300,9 +1301,6 @@ maybe_enqueue(RaftIdx, From, MsgSeqNo, RawMsg, Effects0,
             % map as it was added earlier
             {duplicate, State0, Effects0}
     end.
-
-snd(T) ->
-    element(2, T).
 
 return(#{index := IncomingRaftIdx} = Meta, ConsumerId, Returned,
        Effects0, State0) ->

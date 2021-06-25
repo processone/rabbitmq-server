@@ -2,6 +2,7 @@
 
 %% rabbit_fifo unit tests suite
 
+-compile(nowarn_export_all).
 -compile(export_all).
 
 -compile({no_auto_import, [apply/3]}).
@@ -11,7 +12,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("rabbit_common/include/rabbit.hrl").
--include("src/rabbit_fifo.hrl").
+-include_lib("rabbit/src/rabbit_fifo.hrl").
 
 %%%===================================================================
 %%% Common Test callbacks
@@ -363,9 +364,9 @@ return_checked_out_limit_test(_) ->
     {State2, ok, [{send_msg, _, {delivery, _, [{MsgId2, _}]}, _},
                   {aux, active}]} =
         apply(meta(3), rabbit_fifo:make_return(Cid, [MsgId]), State1),
-    {#rabbit_fifo{ra_indexes = RaIdxs}, ok, [_ReleaseEff]} =
+    {#rabbit_fifo{} = State, ok, [_ReleaseEff]} =
         apply(meta(4), rabbit_fifo:make_return(Cid, [MsgId2]), State2),
-    ?assertEqual(0, rabbit_fifo_index:size(RaIdxs)),
+    ?assertEqual(0, rabbit_fifo:query_messages_total(State)),
     ok.
 
 return_auto_checked_out_test(_) ->
@@ -571,9 +572,8 @@ pending_enqueue_is_enqueued_on_down_test(_) ->
 
 duplicate_delivery_test(_) ->
     {State0, _} = enq(1, 1, first, test_init(test)),
-    {#rabbit_fifo{ra_indexes = RaIdxs,
-            messages = Messages}, _} = enq(2, 1, first, State0),
-    ?assertEqual(1, rabbit_fifo_index:size(RaIdxs)),
+    {#rabbit_fifo{messages = Messages} = State, _} = enq(2, 1, first, State0),
+    ?assertEqual(1, rabbit_fifo:query_messages_total(State)),
     ?assertEqual(1, lqueue:len(Messages)),
     ok.
 
@@ -646,7 +646,7 @@ purge_with_checkout_test(_) ->
     {State3, {purge, 1}, _} = apply(meta(2), rabbit_fifo:make_purge(), State2),
     ?assert(State2#rabbit_fifo.msg_bytes_checkout > 0),
     ?assertEqual(0, State3#rabbit_fifo.msg_bytes_enqueue),
-    ?assertEqual(1, rabbit_fifo_index:size(State3#rabbit_fifo.ra_indexes)),
+    ?assertEqual(1, rabbit_fifo:query_messages_total(State3)),
     #consumer{checked_out = Checked} = maps:get(Cid, State3#rabbit_fifo.consumers),
     ?assertEqual(1, maps:size(Checked)),
     ok.
@@ -1685,10 +1685,10 @@ query_peek_test(_) ->
     ?assertEqual({error, no_message_at_pos}, rabbit_fifo:query_peek(1, State0)),
     {State1, _} = enq(1, 1, first, State0),
     {State2, _} = enq(2, 2, second, State1),
-    ?assertMatch({ok, {_, {_, first}}}, rabbit_fifo:query_peek(1, State1)),
+    ?assertMatch({ok, [_, _ | first]}, rabbit_fifo:query_peek(1, State1)),
     ?assertEqual({error, no_message_at_pos}, rabbit_fifo:query_peek(2, State1)),
-    ?assertMatch({ok, {_, {_, first}}}, rabbit_fifo:query_peek(1, State2)),
-    ?assertMatch({ok, {_, {_, second}}}, rabbit_fifo:query_peek(2, State2)),
+    ?assertMatch({ok, [_, _ | first]}, rabbit_fifo:query_peek(1, State2)),
+    ?assertMatch({ok, [_, _ | second]}, rabbit_fifo:query_peek(2, State2)),
     ?assertEqual({error, no_message_at_pos}, rabbit_fifo:query_peek(3, State2)),
     ok.
 
